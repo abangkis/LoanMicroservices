@@ -1,4 +1,4 @@
-package net.mreunionlabs.services
+package net.mreunionlabs.services.borrower
 
 import io.ktor.application.*
 import io.ktor.features.StatusPages
@@ -22,23 +22,20 @@ fun Application.borrowerModule() {
     }
 
     routing {
-        root()
+        get("/health_check") {
+            // Check databases/other services.
+            call.respondText("OK")
+        }
+
+        get("/") {
+            call.respondText("Hello, loan!", ContentType.Text.Html)
+        }
+
         borrower()
     }
 }
 
 // Extracted route
-fun Routing.root() {
-    get("/health_check") {
-        // Check databases/other services.
-        call.respondText("OK")
-    }
-
-    get("/") {
-        call.respondText("Hello, borrower!", ContentType.Text.Html)
-    }
-}
-
 fun Routing.borrower() {
     route("/borrower") {
         get("/health_check") {
