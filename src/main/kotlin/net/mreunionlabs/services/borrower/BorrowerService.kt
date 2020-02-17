@@ -1,24 +1,57 @@
 package net.mreunionlabs.services.borrower
 
-import io.ktor.application.*
+import com.google.gson.FieldNamingPolicy
+import io.ktor.application.Application
+import io.ktor.application.call
+import io.ktor.application.install
+import io.ktor.application.log
+import io.ktor.features.CallLogging
+import io.ktor.features.ContentNegotiation
 import io.ktor.features.StatusPages
-import io.ktor.http.*
-import io.ktor.response.*
-import io.ktor.routing.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
+import io.ktor.features.callIdMdc
+import io.ktor.gson.gson
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.response.respond
+import io.ktor.response.respondText
+import io.ktor.routing.Routing
+import io.ktor.routing.get
+import io.ktor.routing.route
+import io.ktor.routing.routing
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import org.slf4j.Logger
+
 
 fun main(args: Array<String>) {
     embeddedServer(Netty, port = 8080, module = Application::borrowerModule).start(wait = true)
 }
 
 
-
 fun Application.borrowerModule() {
-    install(StatusPages){
+    install(StatusPages) {
         exception<Throwable> { cause ->
             call.respond(HttpStatusCode.InternalServerError)
+            throw cause
         }
+    }
+
+    install(ContentNegotiation) {
+        //        jackson {
+//            enable(SerializationFeature.INDENT_OUTPUT)
+//            propertyNamingStrategy = PropertyNamingStrategy.SNAKE_CASE
+//        }
+
+        // see https://ktor.io/servers/features/content-negotiation/gson.html
+        gson {
+            setPrettyPrinting()
+            setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+        }
+    }
+
+    install(CallLogging) {
+        //        level = Level.TRACE
+        callIdMdc("X-Request-ID")
     }
 
     routing {
@@ -28,15 +61,15 @@ fun Application.borrowerModule() {
         }
 
         get("/") {
-            call.respondText("Hello, loan!", ContentType.Text.Html)
+            call.respondText("Hello, Borrower!", ContentType.Text.Html)
         }
 
-        borrower()
+        borrower(log)
     }
 }
 
 // Extracted route
-fun Routing.borrower() {
+fun Routing.borrower(log: Logger) {
     route("/borrower") {
         get("/health_check") {
             // Check databases/other services.
@@ -44,8 +77,24 @@ fun Routing.borrower() {
         }
 
         get("/") {
-            call.respondText("Get borrower!", ContentType.Text.Html)
+            call.respond(Borrower(1, "Cibo"))
         }
     }
 
+    get("/borrower-loan") {
+        val service = RetrofitHelper.getService()
+
+        val borrower = Borrower(1, "Cibo")
+        val loan = service.getLoan()
+
+        log.debug("loan $loan")
+
+        val map = mapOf(
+            "borrower" to borrower,
+            "loan" to loan
+        )
+        call.respond(map)
+    }
 }
+
+
